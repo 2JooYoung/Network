@@ -121,7 +121,7 @@ int main()
 
 
 	//家南捞尔 观狼 林家尔 楷搬
-	//bind(ListenSocket)
+	//bind (ListenSocket)
 
 	WSACleanup();
 
