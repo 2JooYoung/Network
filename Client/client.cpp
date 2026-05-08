@@ -1,3 +1,5 @@
+ï»¿#define _WINSOCK_DEPRECATED_NO_WARNINGS
+
 #include <iostream>
 #include <WinSock2.h>
 #include <WS2tcpip.h>
@@ -9,6 +11,46 @@
 
 const char Operators[5] = { '+', '-', '*', '/', '%' };
 
+int main3()
+{
+	WSAData wsaData;
+	WSAStartup(MAKEWORD(2, 2), &wsaData);
+
+	hostent* HostInfo = gethostbyname("naver.com");
+
+	printf("%s\n", HostInfo->h_name);
+	printf("%s\n", HostInfo->h_addrtype == AF_INET ? "IP v4" : "IP v6");
+
+	while (*HostInfo->h_aliases != nullptr)
+	{
+		printf("%s\n", *HostInfo->h_aliases);
+		HostInfo->h_aliases++;
+	}
+
+	//[][][]
+
+	//ip v4
+	//[][][][]
+	//[][][][]
+	//[][][][]
+	//ip v6
+	//[][][][][][][][][][][][][][][][]
+	//[][][][][][][][][][][][][][][][]
+
+	while (*HostInfo->h_addr_list != nullptr)
+	{
+		IN_ADDR Addr;
+		Addr.s_addr = *(ULONG*)*HostInfo->h_addr_list;
+		printf("%s\n", inet_ntoa(Addr));
+		HostInfo->h_addr_list++;
+	}
+
+
+	WSACleanup();
+
+	return 0;
+}
+
 
 int main()
 {
@@ -17,20 +59,30 @@ int main()
 	WSAData wsaData;
 	WSAStartup(MAKEWORD(2, 2), &wsaData);
 
+	hostent* HostInfo = gethostbyname("login.calculate.edu");
+
+	char ServerIP[1024] = { 0, };
+	IN_ADDR Addr;
+	Addr.s_addr = *(ULONG*)*HostInfo->h_addr_list;
+	sprintf_s(ServerIP, "%s", inet_ntoa(Addr));
+	printf("%s\n", ServerIP);
+
+
+
 	SOCKET ServerSocket = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
 
 	SOCKADDR_IN ServerSockAddr;
 	ZeroMemory(&ServerSockAddr, sizeof(ServerSockAddr));
 	ServerSockAddr.sin_family = AF_INET;
-	inet_pton(AF_INET, "127.0.0.1", (PVOID)&ServerSockAddr.sin_addr.s_addr);
+	inet_pton(AF_INET, ServerIP, (PVOID)&ServerSockAddr.sin_addr.s_addr);
 	ServerSockAddr.sin_port = htons(31000);
 
 	connect(ServerSocket, (SOCKADDR*)&ServerSockAddr, sizeof(ServerSockAddr));
 
 	while (true)
 	{
-		int FirstNumber = rand() % (RAND_MAX - 1)  + 1;
-		int SecondNumber = rand() % (RAND_MAX - 1)  + 1;
+		int FirstNumber = rand() % (RAND_MAX - 1) + 1;
+		int SecondNumber = rand() % (RAND_MAX - 1) + 1;
 		unsigned short OperatorIndex = rand() % 5;
 
 		printf("%d%c%d", FirstNumber, Operators[OperatorIndex], SecondNumber);
@@ -47,7 +99,7 @@ int main()
 		Header.Size = htons(Header.Size);
 		Header.Code = htons(Header.Code);
 
-		//Headerº¸³½´Ù. 4
+		//HeaderÂºÂ¸Â³Â½Â´Ã™. 4
 		int WantSendBytes = sizeof(Header);
 		int SentBytes = 0;
 		int TotalSentBytes = 0;
@@ -68,7 +120,7 @@ int main()
 			TotalSentBytes += SentBytes;
 		} while (TotalSentBytes < WantSendBytes);
 
-
+		
 		//Data
 		//[][][][] 
 		char Data[1024] = { 0, };

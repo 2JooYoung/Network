@@ -38,7 +38,7 @@ int main()
 	ZeroMemory(&ListenSockAddr, sizeof(ListenSockAddr));
 	ListenSockAddr.sin_family = AF_INET;
 	//ListenSockAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
-	inet_pton(AF_INET, "127.0.0.1", (PVOID)&ListenSockAddr.sin_addr.s_addr);
+	inet_pton(AF_INET, "192.168.0.95", (PVOID)&ListenSockAddr.sin_addr.s_addr);
 
 	ListenSockAddr.sin_port = htons(31000);
 
@@ -112,12 +112,12 @@ int main()
 				if (SentBytes == 0)
 				{
 					printf("connection close");
-					exit(-1);
+					break;
 				}
 				else if (SentBytes < 0)
 				{
 					printf("send error");
-					exit(-1);
+					break;
 				}
 				TotalSentBytes += SentBytes;
 			} while (TotalSentBytes < WantSendBytes);
@@ -136,12 +136,12 @@ int main()
 				if (SentBytes == 0)
 				{
 					printf("connection close");
-					exit(-1);
+					break;
 				}
 				else if (SentBytes < 0)
 				{
 					printf("send error");
-					exit(-1);
+					break;
 				}
 				TotalSentBytes += SentBytes;
 			} while (TotalSentBytes < WantSendBytes);
