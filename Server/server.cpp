@@ -1,130 +1,94 @@
-#include <iostream>
-#include <WinSock2.h>	//윈도우 환경이라
+//server.cpp
 
+#include <stdio.h>
+#include <cstdlib>
+#include <WinSock2.h>
+#include <ws2tcpip.h>
 #pragma comment(lib, "ws2_32")
 
-using namespace std;
+
 
 int main()
 {
-	//winsock.dll 로딩. 소켓 쓸수 있도록
-	//ws2_32.dll 로딩, winsock -> bsd socket 윈도우에서 구현체
 	WSAData wsaData;
+	WSAStartup(MAKEWORD(2, 2), &wsaData);
 
-	//초기화 함수. 윈도우라서 함
-	int Result = WSAStartup(MAKEWORD(2, 2), &wsaData); //옛날에 만들어진거라 소수연산 못해서 2.2 이렇게 씀
-
-
-	if (Result != 0)
-	{
-		cout << "WSAStartup Error" << GetLastError() << endl;
-		exit(-1);
-	}
-
-	//여기서 부터는 리눅스랑 같음
-	//INET 형태로 TCP 소켓 만들어줘
+	//TCP, Stream
+	//IP 프로토콜 중 TCP를 사용하겠다 그중 STREAM을 사용하겠다
 	SOCKET ListenSocket = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
 
-	if (ListenSocket == INVALID_SOCKET)
-	{
-		cout << "socket Error" << WSAGetLastError() << endl;
-		exit(-1);
-	}
+	SOCKADDR_IN ListenSockAddr;
+	ZeroMemory(&ListenSockAddr, sizeof(ListenSockAddr));
+	ListenSockAddr.sin_family = AF_INET;
+
+	//주소 막 넣으면 되니까 해킹에 취약
+	//ListenSockAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+	//PVOID : void* 임
+	inet_pton(AF_INET, "127.0.0.1", (PVOID)&ListenSockAddr.sin_addr.s_addr);
+
+	ListenSockAddr.sin_port = htons(31000);
 
 
-	//학습용으로 LAN카드 하나
-	//나중에는 이렇게 하면 안됨
-	SOCKADDR_IN ListenSockAddr; //12바이트
-	memset(&ListenSockAddr, 0, sizeof(ListenSockAddr)); //ListenSockAddr 비우기.
+	bind(ListenSocket, (SOCKADDR*)&ListenSockAddr, sizeof(ListenSockAddr));
 
-	//내가 쓸 소켓과 연결해줘
-	ListenSockAddr.sin_family = AF_INET; //ipv4
-	ListenSockAddr.sin_addr.s_addr = INADDR_ANY;
-	ListenSockAddr.sin_port = htons(1234); //포트번호
-
-	Result = bind(ListenSocket, (SOCKADDR*)&ListenSockAddr, sizeof(ListenSockAddr));
-
-	if (Result == SOCKET_ERROR)
-	{
-		cout << "bind Error" << WSAGetLastError() << endl;
-		exit(-1);
-	}
-
-	//전화해
-	Result = listen(ListenSocket, SOMAXCONN);
-	if (Result == SOCKET_ERROR)
-	{
-		cout << "listen Error" << WSAGetLastError() << endl;
-		exit(-1);
-	}
-
-	//받아
-	SOCKADDR_IN ClientSockAddr;
-	memset(&ClientSockAddr, 0, sizeof(ClientSockAddr));
-	//외부 주소는 크기 다를 수 있기 때문에 확인
-	int LengthClientSockAddr = sizeof(ClientSockAddr);
-
+	listen(ListenSocket, 0);
 
 	while (true)
 	{
-		//blocking함수
-		SOCKET ClientSocket = accept(ListenSocket, (SOCKADDR*)&ClientSockAddr, &LengthClientSockAddr);
-		if (ClientSocket == INVALID_SOCKET)
-		{
-			cout << "accept Error" << WSAGetLastError() << endl;
-			exit(-1);
-		}
+		SOCKADDR_IN ClientSockAddr;
+		ZeroMemory(&ListenSockAddr, sizeof(ListenSockAddr));
+		int ClientSockAddrLength = sizeof(ClientSockAddr);
+
+		//blocking
+		SOCKET ClientSocket = accept(ListenSocket, (SOCKADDR*)&ClientSockAddr, &ClientSockAddrLength);
+
 
 		char Buffer[1024] = { 0, };
 
-		//blocking 기본. 자료 올때까지 멈춰있음
-		int RecvLength = recv(ClientSocket, Buffer, sizeof(Buffer), 0);
-
-		//상대방이 전화 끊으면 정상종료 0
-		if (RecvLength == 0)
+		//OS Buffer에서 가져온다
+		//recv
+		int RecvBytes = recv(ClientSocket, Buffer, sizeof(Buffer), 0);
+		if (RecvBytes == 0)
 		{
-			cout << "disconnect" << WSAGetLastError() << endl;
-			exit(-1);
+			//connection close
+		}
+		else if (RecvBytes < 0)
+		{
+			//Error
+		}
+		else //5byte 1,1,1,1 , Server랑 Client send, recv 횟수가 같지 않음
+		{
+			//네트워크 상태가 안 좋으면 1byte씩 갈수도 있다. 0보다 크다고 해서 무조건 다 받은것이 아님
 		}
 
-		//음수면 오류
-		else if (RecvLength < 0)
+		//Packet Parse
+
+
+		//Header 20byte, 1바이트?
+		//OS Buffer 집어 넣는다. nagle algorithm
+		//send
+		int SentBytes = send(ClientSocket, Buffer, RecvBytes, 0);
+		if (SentBytes == 0)
 		{
-			cout << "disconnect" << endl;
-			exit(-1);
+			//OS Buffer에서 못 집어 넣음
+		}
+		else if (SentBytes < 0)
+		{
+			//Error
 		}
 
-		//양수면 자료 받았다는 뜻
-		cout << "client send data : " << Buffer << endl;
-
-		int SentLength = send(ClientSocket, Buffer, sizeof(Buffer), 0);
-		if (SentLength == 0)
+		else
 		{
-			cout << "send disconnect " << endl;
-			exit(-1);
-		}
-		else if (SentLength < 0)
-		{
-			cout << "send Error " << WSAGetLastError() << endl;
-			exit(-1);
+			//한방에 다갈까?
 		}
 
-
-		closesocket(ClientSocket);
+		shutdown(ClientSocket, SD_BOTH);
 	}
-
 
 	closesocket(ListenSocket);
 
 
-
-
-
-	//소켓이랑 밖의 주소랑 연결
-	//bind (ListenSocket)
-
 	WSACleanup();
 
 	return 0;
-
 }
