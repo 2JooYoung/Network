@@ -1,6 +1,13 @@
+//Client.cpp
+
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
+#define _CRT_SECURE_NO_WARNINGS
+
+
 #include <iostream>
+
 #include <WinSock2.h>
+
 #pragma comment(lib, "ws2_32")
 
 using namespace std;
@@ -41,35 +48,26 @@ int main()
 	}
 
 
+	FILE* OutputFile = fopen("flower_2.png", "wb");
 
-	char Buffer[1024] = "Hello World";
-	int SentLength = send(ServerSocket, Buffer, sizeof(Buffer), 0);
-	if (SentLength == 0)
-	{
-		cout << "send disconnect " << endl;
-		exit(-1);
-	}
-	else if (SentLength < 0)
-	{
-		cout << "send Error " << WSAGetLastError() << endl;
-		exit(-1);
-	}
+	char Buffer[1] = { 0, };
+	size_t WriteSize = 0;
+	int Count = 0;
 
-	//blocking
-	int RecvLength = recv(ServerSocket, Buffer, sizeof(Buffer), 0);
-	if (RecvLength == 0)
+	do
 	{
-		cout << "recv disconnect " << endl;
-		exit(-1);
-	}
-	else if (RecvLength < 0)
-	{
-		cout << "recv Error " << WSAGetLastError() << endl;
-		exit(-1);
-	}
+		cout << ++Count << endl;
 
-	cout << "server send data : " << Buffer << endl;
+		int RecvBytes = recv(ServerSocket, Buffer, sizeof(Buffer), 0);
+		if (RecvBytes <= 0)
+		{
+			break;
+		}
 
+		WriteSize = fwrite(Buffer, sizeof(char), RecvBytes, OutputFile);
+	} while (WriteSize > 0);
+
+	fclose(OutputFile);
 
 	closesocket(ServerSocket);
 
