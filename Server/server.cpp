@@ -1,12 +1,29 @@
-#define _WINSOCK_DEPRECATED_NO_WARNINGS
+﻿#define _WINSOCK_DEPRECATED_NO_WARNINGS
+#define _CRT_SECURE_NO_WARNINGS
 
 #include <stdio.h>
 #include <WinSock2.h>
 #include <WS2tcpip.h>
 
+#include <iostream>
+
 #include "Packet.h"
 
 #pragma comment(lib, "ws2_32")
+
+void SendAll(SOCKET ReceiverSocket, char* Data, int Size)
+{
+    int TotalSendDataSize = 0;
+    int WantSendDataSize = Size;
+    int SentBytes = 0;
+    int Count = 0;
+    do
+    {
+        SentBytes = send(ReceiverSocket, Data + TotalSendDataSize, WantSendDataSize - TotalSendDataSize, 0);
+        TotalSendDataSize += SentBytes;
+        printf("Send %dBytes %d Count\n", SentBytes, ++Count);
+    } while (TotalSendDataSize < WantSendDataSize);
+}
 
 
 int main()
@@ -26,7 +43,7 @@ int main()
     ListenAddr.sin_port        = htons(31000);
 
     bind(ListenSocket, (SOCKADDR*)&ListenAddr, sizeof(ListenAddr));
-    listen(ListenSocket, 1);
+    listen(ListenSocket, 5);
 
     printf("Server started. Port 31000. Waiting for client...\n");
 
@@ -63,16 +80,19 @@ int main()
                 break;
             }
 
-            RecvHeader.Size = ntohs(RecvHeader.Size);
+            RecvHeader.Size = ntohl(RecvHeader.Size);
             RecvHeader.Code = ntohs(RecvHeader.Code);
 
-            // 데이터 수신 (블로킹)
-            MoveData Move;
-            recv(ClientSocket, (char*)&Move, RecvHeader.Size, MSG_WAITALL);
+
+
 
             // 이동 처리
             if ((PacketType)RecvHeader.Code == PacketType::Move)
             {
+                // 데이터 수신 (블로킹)
+                MoveData Move;
+                recv(ClientSocket, (char*)&Move, (int)RecvHeader.Size, MSG_WAITALL);
+
                 int NewX = PlayerX;
                 int NewY = PlayerY;
 
@@ -102,7 +122,7 @@ int main()
                 printf("Player [%c] -> (%d, %d)\n", Move.Dir, PlayerX, PlayerY);
 
                 // 갱신된 위치 전송 (헤더)
-                SendHeader.Size = htons((unsigned short)sizeof(PositionData));
+                SendHeader.Size = htonl(sizeof(PositionData));
                 SendHeader.Code = htons((unsigned short)PacketType::Position);
 
                 SendPos.X = htonl((u_long)PlayerX);
@@ -143,6 +163,45 @@ int main()
                     }
                     TotalSent += Sent;
                 } while (TotalSent < WantSend);
+            }
+            else if ((PacketType)RecvHeader.Code == PacketType::C2S_File)
+            {
+                //서버에서 파일 보내줌
+
+
+                FILE* InputFile = fopen("카네이션.png", "rb");
+
+                fseek(InputFile, 0, SEEK_END);
+                unsigned long FileSize = ftell(InputFile);
+                fseek(InputFile, 0, SEEK_SET);
+
+                //header 전송
+                PacketHeader FileHeader;
+                FileHeader.Size = FileSize;
+                FileHeader.Code = static_cast<unsigned int>(PacketType::S2C_File);
+
+                FileHeader.Size = htonl(FileHeader.Size);
+                FileHeader.Code = htons(FileHeader.Code);
+
+                SendAll(ClientSocket, (char*)&FileHeader, sizeof(FileHeader));
+
+
+                char Buffer[10240] = { 0, };
+                size_t ReadSize = 0;
+                int Count = 0;
+                do
+                {
+                    printf("%d\n", ++Count);
+                    ReadSize = fread(Buffer, sizeof(char), sizeof(Buffer), InputFile);
+                    int SentBytes = send(ClientSocket, Buffer, (int)ReadSize, 0);
+                    if (SentBytes <= 0)
+                    {
+                        break;
+                    }
+
+                } while (ReadSize > 0);
+
+                fclose(InputFile);
             }
         }
 

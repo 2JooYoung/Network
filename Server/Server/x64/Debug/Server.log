@@ -1,0 +1,6 @@
+﻿  server.cpp
+C:\Work\Network\Server\server.cpp(1,1): warning C4819: The file contains a character that cannot be represented in the current code page (949). Save the file in Unicode format to prevent data loss
+C:\Work\Network\Server\Packet.h(1,1): warning C4819: The file contains a character that cannot be represented in the current code page (949). Save the file in Unicode format to prevent data loss
+  (compiling source file 'server.cpp')
+  
+  Server.vcxproj -> C:\Work\Network\Server\x64\Debug\Server.exe
