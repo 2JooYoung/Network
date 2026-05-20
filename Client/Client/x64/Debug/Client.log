@@ -1,5 +1,0 @@
-﻿  client.cpp
-C:\Work\Network\Client\Packet.h(1,1): warning C4819: The file contains a character that cannot be represented in the current code page (949). Save the file in Unicode format to prevent data loss
-  (compiling source file 'client.cpp')
-  
-  Client.vcxproj -> C:\Work\Network\Client\x64\Debug\Client.exe

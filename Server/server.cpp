@@ -1,216 +1,144 @@
-ï»¿#define _WINSOCK_DEPRECATED_NO_WARNINGS
-#define _CRT_SECURE_NO_WARNINGS
+#define _WINSOCK_DEPRECATED_NO_WARNINGS
 
-#include <stdio.h>
-#include <WinSock2.h>
-#include <WS2tcpip.h>
-
+#include <winsock2.h>
 #include <iostream>
-
-#include "Packet.h"
 
 #pragma comment(lib, "ws2_32")
 
-void SendAll(SOCKET ReceiverSocket, char* Data, int Size)
-{
-    int TotalSendDataSize = 0;
-    int WantSendDataSize = Size;
-    int SentBytes = 0;
-    int Count = 0;
-    do
-    {
-        SentBytes = send(ReceiverSocket, Data + TotalSendDataSize, WantSendDataSize - TotalSendDataSize, 0);
-        TotalSendDataSize += SentBytes;
-        printf("Send %dBytes %d Count\n", SentBytes, ++Count);
-    } while (TotalSendDataSize < WantSendDataSize);
-}
+using namespace std;
+
+char Buffer[1024] = { 0, };
 
 
+//blocking, synchrous, multiplexing(polling)
 int main()
 {
-    int PlayerX = 0;
-    int PlayerY = 0;
+	WSAData wsaData;
 
-    WSAData WsaData;
-    WSAStartup(MAKEWORD(2, 2), &WsaData);
+	WSAStartup(MAKEWORD(2, 2), &wsaData);
 
-    SOCKET ListenSocket = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
+	SOCKET ListenSocket = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
 
-    SOCKADDR_IN ListenAddr;
-    ZeroMemory(&ListenAddr, sizeof(ListenAddr));
-    ListenAddr.sin_family      = AF_INET;
-    ListenAddr.sin_addr.s_addr = INADDR_ANY;
-    ListenAddr.sin_port        = htons(31000);
+	SOCKADDR_IN ListenSockAddr;
+	memset(&ListenSockAddr, 0, sizeof(ListenSockAddr));
+	ListenSockAddr.sin_family = AF_INET;
+	ListenSockAddr.sin_addr.s_addr = INADDR_ANY;
+	ListenSockAddr.sin_port = htons(35000);
 
-    bind(ListenSocket, (SOCKADDR*)&ListenAddr, sizeof(ListenAddr));
-    listen(ListenSocket, 5);
+	//already use port ÀÌ¹Ì Æ÷Æ® »ç¿ëÁß
+	bind(ListenSocket, (SOCKADDR*)&ListenSockAddr, sizeof(ListenSockAddr));
 
-    printf("Server started. Port 31000. Waiting for client...\n");
-
-    while (true)
-    {
-        // í´ë¼ì´ì–¸íŠ¸ ì ‘ì† ëŒ€ê¸° (ë¸”ë¡œí‚¹)
-        SOCKADDR_IN ClientAddr;
-        ZeroMemory(&ClientAddr, sizeof(ClientAddr));
-        int ClientAddrLen = sizeof(ClientAddr);
-        SOCKET ClientSocket = accept(ListenSocket, (SOCKADDR*)&ClientAddr, &ClientAddrLen);
-
-        char ClientIP[64] = { 0, };
-        inet_ntop(AF_INET, &ClientAddr.sin_addr, ClientIP, sizeof(ClientIP));
-        printf("Client connected: %s\n", ClientIP);
-
-        PacketHeader SendHeader;
-        PositionData SendPos;
-        int WantSend = 0;
-        int TotalSent = 0;
-        int Sent = 0;
-        int Running = 1;
-
-        // -------------------------------------------------------
-        // ì´ë™ íŒ¨í‚· ìˆ˜ì‹  ë£¨í”„
-        // -------------------------------------------------------
-        while (Running)
-        {
-            // í—¤ë” ìˆ˜ì‹  (ë¸”ë¡œí‚¹)
-            PacketHeader RecvHeader;
-            int RecvBytes = recv(ClientSocket, (char*)&RecvHeader, sizeof(RecvHeader), MSG_WAITALL);
-            if (RecvBytes <= 0)
-            {
-                printf("Client disconnected.\n");
-                break;
-            }
-
-            RecvHeader.Size = ntohl(RecvHeader.Size);
-            RecvHeader.Code = ntohs(RecvHeader.Code);
+	listen(ListenSocket, SOMAXCONN);
 
 
 
+	//blocking, synchronous(TimeOut)
+	TIMEVAL TimeOut;
+	TimeOut.tv_sec = 0;
+	TimeOut.tv_usec = 500000;
 
-            // ì´ë™ ì²˜ë¦¬
-            if ((PacketType)RecvHeader.Code == PacketType::Move)
-            {
-                // ë°ì´í„° ìˆ˜ì‹  (ë¸”ë¡œí‚¹)
-                MoveData Move;
-                recv(ClientSocket, (char*)&Move, (int)RecvHeader.Size, MSG_WAITALL);
+	fd_set ReadSockets;
+	fd_set CopyReadSockets;
 
-                int NewX = PlayerX;
-                int NewY = PlayerY;
+	FD_ZERO(&ReadSockets);
+	FD_SET(ListenSocket, &ReadSockets);
 
-                switch (Move.Dir)
-                {
-                case 'W':
-                case 'w':
-                    NewY--;
-                    break;
-                case 'S':
-                case 's':
-                    NewY++;
-                    break;
-                case 'A':
-                case 'a':
-                    NewX--;
-                    break;
-                case 'D':
-                case 'd':
-                    NewX++;
-                    break;
-                }
+	while (true)
+	{
+		CopyReadSockets = ReadSockets;
 
-                PlayerX = NewX;
-                PlayerY = NewY;
+		//0.5ÃÊ¾¿ blocking
+		int ChangeCount = select(0, &CopyReadSockets, 0, 0, &TimeOut);
 
-                printf("Player [%c] -> (%d, %d)\n", Move.Dir, PlayerX, PlayerY);
+		if (ChangeCount <= 0)
+		{
+			//Server Work
+			//0.5ÃÊÇÑ¹ø ¼­¹ö ÀÛ¾÷À» ÇÏ´Â°Å
+			continue;
+		}
 
-                // ê°±ì‹ ëœ ìœ„ì¹˜ ì „ì†¡ (í—¤ë”)
-                SendHeader.Size = htonl(sizeof(PositionData));
-                SendHeader.Code = htons((unsigned short)PacketType::Position);
+		//¸ó°¡ ÀÚ·á ÀÖ´Ù.
+		for (int i = 0; i < (int)ReadSockets.fd_count; ++i)
+		{
+			if (FD_ISSET(ReadSockets.fd_array[i], &CopyReadSockets))
+			{
+				if (ReadSockets.fd_array[i] == ListenSocket)
+				{
+					//connect process
+					SOCKADDR_IN ClientSockAddr;
+					memset(&ClientSockAddr, 0, sizeof(ClientSockAddr));
+					int ClientSockSockLength = sizeof(ClientSockAddr);
 
-                SendPos.X = htonl((u_long)PlayerX);
-                SendPos.Y = htonl((u_long)PlayerY);
+					//blocking, synchronous
+					SOCKET ClientSocket = accept(ListenSocket, (SOCKADDR*)&ClientSockAddr, &ClientSockSockLength);
 
-                WantSend = sizeof(SendHeader);
-                TotalSent = 0;
+					cout << "connect client " << inet_ntoa(ClientSockAddr.sin_addr) << endl;
 
-                do
-                {
-                    Sent = send(ClientSocket, (char*)&SendHeader + TotalSent, WantSend - TotalSent, 0);
-                    if (Sent <= 0)
-                    {
-                        printf("send error\n");
-                        Running = 0;
-                        break;
-                    }
-                    TotalSent += Sent;
-                } while (TotalSent < WantSend);
+					FD_SET(ClientSocket, &ReadSockets);
+				}
+				else
+				{
+					//Data Receive
+					int RecvBytes = recv(ReadSockets.fd_array[i], Buffer, sizeof(Buffer), 0);
+					if (RecvBytes <= 0)
+					{
+						SOCKADDR_IN ClosedSockAddr;
+						memset(&ClosedSockAddr, 0, sizeof(ClosedSockAddr));
+						int ClosedSockAddrLength = sizeof(ClosedSockAddr);
 
-                if (!Running)
-                {
-                    break;
-                }
+						SOCKET ClosedSocket = ReadSockets.fd_array[i];
+						getpeername(ClosedSocket, (SOCKADDR*)&ClosedSockAddr, &ClosedSockAddrLength);
+						cout << "disconnect client " << inet_ntoa(ClosedSockAddr.sin_addr) << endl;
+						FD_CLR(ReadSockets.fd_array[i], &ReadSockets);
+						closesocket(ClosedSocket);
+					}
+					else
+					{
+						SOCKADDR_IN ClientSockAddr;
+						memset(&ClientSockAddr, 0, sizeof(ClientSockAddr));
+						int ClientSockAddrLength = sizeof(ClientSockAddr);
 
-                // ê°±ì‹ ëœ ìœ„ì¹˜ ì „ì†¡ (ë°ì´í„°)
-                WantSend = sizeof(SendPos);
-                TotalSent = 0;
+						getpeername(ReadSockets.fd_array[i], (SOCKADDR*)&ClientSockAddr, &ClientSockAddrLength);
 
-                do
-                {
-                    Sent = send(ClientSocket, (char*)&SendPos + TotalSent, WantSend - TotalSent, 0);
-                    if (Sent <= 0)
-                    {
-                        printf("send error\n");
-                        Running = 0;
-                        break;
-                    }
-                    TotalSent += Sent;
-                } while (TotalSent < WantSend);
-            }
-            else if ((PacketType)RecvHeader.Code == PacketType::C2S_File)
-            {
-                //ì„œë²„ì—ì„œ íŒŒì¼ ë³´ë‚´ì¤Œ
+						cout << "client(" << inet_ntoa(ClientSockAddr.sin_addr);
+						cout << ")" << Buffer << " send" << endl;
+						//¸ðµç Á¢¼ÓÇÑ À¯ÀúÇÑÅ× Àü´Þ
 
+						for (int j = 0; j < (int)ReadSockets.fd_count; ++j)
+						{
+							//ÀÚ±â²¨´Â ±×³É Âï°í ¾È ¹ÞÀ¸¸é ¾ÈµÇ¿ä?
+							//Å¬¶óÀÌ¾ðÆ®¿¡¼­´Â Ã³¸® ¾ÈÇÔ.
+							if (ReadSockets.fd_array[i] != ListenSocket)
+							{
+								int SentBytes = send(ReadSockets.fd_array[i], Buffer, sizeof(Buffer), 0);
+								if (SentBytes <= 0)
+								{
+									SOCKADDR_IN ClosedSockAddr;
+									memset(&ClosedSockAddr, 0, sizeof(ClosedSockAddr));
+									int ClosedSockAddrLength = sizeof(ClosedSockAddr);
 
-                FILE* InputFile = fopen("ì¹´ë„¤ì´ì…˜.png", "rb");
-
-                fseek(InputFile, 0, SEEK_END);
-                unsigned long FileSize = ftell(InputFile);
-                fseek(InputFile, 0, SEEK_SET);
-
-                //header ì „ì†¡
-                PacketHeader FileHeader;
-                FileHeader.Size = FileSize;
-                FileHeader.Code = static_cast<unsigned int>(PacketType::S2C_File);
-
-                FileHeader.Size = htonl(FileHeader.Size);
-                FileHeader.Code = htons(FileHeader.Code);
-
-                SendAll(ClientSocket, (char*)&FileHeader, sizeof(FileHeader));
-
-
-                char Buffer[10240] = { 0, };
-                size_t ReadSize = 0;
-                int Count = 0;
-                do
-                {
-                    printf("%d\n", ++Count);
-                    ReadSize = fread(Buffer, sizeof(char), sizeof(Buffer), InputFile);
-                    int SentBytes = send(ClientSocket, Buffer, (int)ReadSize, 0);
-                    if (SentBytes <= 0)
-                    {
-                        break;
-                    }
-
-                } while (ReadSize > 0);
-
-                fclose(InputFile);
-            }
-        }
-
-        shutdown(ClientSocket, SD_BOTH);
-        closesocket(ClientSocket);
-    }
+									SOCKET ClosedSocket = ReadSockets.fd_array[i];
+									getpeername(ClosedSocket, (SOCKADDR*)&ClosedSockAddr, &ClosedSockAddrLength);
+									cout << "send fail." << endl;
+									cout << "disconnect client " << inet_ntoa(ClosedSockAddr.sin_addr) << endl;
+									FD_CLR(ReadSockets.fd_array[i], &ReadSockets);
+									closesocket(ClosedSocket);
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
 
 
-    closesocket(ListenSocket);
-    WSACleanup();
-    return 0;
+
+
+
+
+	closesocket(ListenSocket);
+	WSACleanup();
+
+	return 0;
 }
