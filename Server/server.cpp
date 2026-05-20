@@ -13,6 +13,8 @@ char Buffer[1024] = { 0, };
 //blocking, synchrous, multiplexing(polling)
 int main()
 {
+	cout << "server start" << endl;
+
 	WSAData wsaData;
 
 	WSAStartup(MAKEWORD(2, 2), &wsaData);
@@ -108,20 +110,20 @@ int main()
 						{
 							//자기꺼는 그냥 찍고 안 받으면 안되요?
 							//클라이언트에서는 처리 안함.
-							if (ReadSockets.fd_array[i] != ListenSocket)
+							if (ReadSockets.fd_array[j] != ListenSocket)
 							{
-								int SentBytes = send(ReadSockets.fd_array[i], Buffer, sizeof(Buffer), 0);
+								int SentBytes = send(ReadSockets.fd_array[j], Buffer, sizeof(Buffer), 0);
 								if (SentBytes <= 0)
 								{
 									SOCKADDR_IN ClosedSockAddr;
 									memset(&ClosedSockAddr, 0, sizeof(ClosedSockAddr));
 									int ClosedSockAddrLength = sizeof(ClosedSockAddr);
 
-									SOCKET ClosedSocket = ReadSockets.fd_array[i];
+									SOCKET ClosedSocket = ReadSockets.fd_array[j];
 									getpeername(ClosedSocket, (SOCKADDR*)&ClosedSockAddr, &ClosedSockAddrLength);
 									cout << "send fail." << endl;
 									cout << "disconnect client " << inet_ntoa(ClosedSockAddr.sin_addr) << endl;
-									FD_CLR(ReadSockets.fd_array[i], &ReadSockets);
+									FD_CLR(ReadSockets.fd_array[j], &ReadSockets);
 									closesocket(ClosedSocket);
 								}
 							}
