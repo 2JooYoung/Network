@@ -1,130 +1,162 @@
+#define _WINSOCK_DEPRECATED_NO_WARNINGS
+
+#include "NetUtil.h"
+
+#include <winsock2.h>
 #include <iostream>
-#include <WinSock2.h>	//윈도우 환경이라
+
 
 #pragma comment(lib, "ws2_32")
+#pragma comment(lib, "NetCommon")
 
 using namespace std;
 
+char Buffer[1024] = { 0, };
+
+//blocking, synchrous, multiplexing(polling)
 int main()
 {
-	//winsock.dll 로딩. 소켓 쓸수 있도록
-	//ws2_32.dll 로딩, winsock -> bsd socket 윈도우에서 구현체
+	cout << "server start" << endl;
+
 	WSAData wsaData;
 
-	//초기화 함수. 윈도우라서 함
-	int Result = WSAStartup(MAKEWORD(2, 2), &wsaData); //옛날에 만들어진거라 소수연산 못해서 2.2 이렇게 씀
+	WSAStartup(MAKEWORD(2, 2), &wsaData);
 
-
-	if (Result != 0)
-	{
-		cout << "WSAStartup Error" << GetLastError() << endl;
-		exit(-1);
-	}
-
-	//여기서 부터는 리눅스랑 같음
-	//INET 형태로 TCP 소켓 만들어줘
 	SOCKET ListenSocket = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
 
-	if (ListenSocket == INVALID_SOCKET)
-	{
-		cout << "socket Error" << WSAGetLastError() << endl;
-		exit(-1);
-	}
-
-
-	//학습용으로 LAN카드 하나
-	//나중에는 이렇게 하면 안됨
-	SOCKADDR_IN ListenSockAddr; //12바이트
-	memset(&ListenSockAddr, 0, sizeof(ListenSockAddr)); //ListenSockAddr 비우기.
-
-	//내가 쓸 소켓과 연결해줘
-	ListenSockAddr.sin_family = AF_INET; //ipv4
+	SOCKADDR_IN ListenSockAddr;
+	memset(&ListenSockAddr, 0, sizeof(ListenSockAddr));
+	ListenSockAddr.sin_family = AF_INET;
 	ListenSockAddr.sin_addr.s_addr = INADDR_ANY;
-	ListenSockAddr.sin_port = htons(1234); //포트번호
+	ListenSockAddr.sin_port = htons(35000);
 
-	Result = bind(ListenSocket, (SOCKADDR*)&ListenSockAddr, sizeof(ListenSockAddr));
+	//already use port 이미 포트 사용중
+	::bind(ListenSocket, (SOCKADDR*)&ListenSockAddr, sizeof(ListenSockAddr));
 
-	if (Result == SOCKET_ERROR)
-	{
-		cout << "bind Error" << WSAGetLastError() << endl;
-		exit(-1);
-	}
+	listen(ListenSocket, SOMAXCONN);
 
-	//전화해
-	Result = listen(ListenSocket, SOMAXCONN);
-	if (Result == SOCKET_ERROR)
-	{
-		cout << "listen Error" << WSAGetLastError() << endl;
-		exit(-1);
-	}
 
-	//받아
-	SOCKADDR_IN ClientSockAddr;
-	memset(&ClientSockAddr, 0, sizeof(ClientSockAddr));
-	//외부 주소는 크기 다를 수 있기 때문에 확인
-	int LengthClientSockAddr = sizeof(ClientSockAddr);
 
+	//blocking, synchronous(TimeOut)
+	TIMEVAL TimeOut;
+	TimeOut.tv_sec = 0;
+	TimeOut.tv_usec = 500000;
+
+	fd_set ReadSockets;
+	fd_set CopyReadSockets;
+
+	FD_ZERO(&ReadSockets);
+	FD_SET(ListenSocket, &ReadSockets);
 
 	while (true)
 	{
-		//blocking함수
-		SOCKET ClientSocket = accept(ListenSocket, (SOCKADDR*)&ClientSockAddr, &LengthClientSockAddr);
-		if (ClientSocket == INVALID_SOCKET)
+		CopyReadSockets = ReadSockets;
+
+		//0.5초씩 blocking
+		int ChangeCount = select(0, &CopyReadSockets, 0, 0, &TimeOut);
+
+		if (ChangeCount <= 0)
 		{
-			cout << "accept Error" << WSAGetLastError() << endl;
-			exit(-1);
+			//Server Work
+			//0.5초한번 서버 작업을 하는거
+			continue;
 		}
 
-		char Buffer[1024] = { 0, };
-
-		//blocking 기본. 자료 올때까지 멈춰있음
-		int RecvLength = recv(ClientSocket, Buffer, sizeof(Buffer), 0);
-
-		//상대방이 전화 끊으면 정상종료 0
-		if (RecvLength == 0)
+		//몬가 자료 있다.
+		for (int i = 0; i < (int)ReadSockets.fd_count; ++i)
 		{
-			cout << "disconnect" << WSAGetLastError() << endl;
-			exit(-1);
+			if (FD_ISSET(ReadSockets.fd_array[i], &CopyReadSockets))
+			{
+				if (ReadSockets.fd_array[i] == ListenSocket)
+				{
+					//connect process
+					SOCKADDR_IN ClientSockAddr;
+					memset(&ClientSockAddr, 0, sizeof(ClientSockAddr));
+					int ClientSockSockLength = sizeof(ClientSockAddr);
+
+					//blocking, synchronous
+					SOCKET ClientSocket = accept(ListenSocket, (SOCKADDR*)&ClientSockAddr, &ClientSockSockLength);
+
+					cout << "connect client " << inet_ntoa(ClientSockAddr.sin_addr) << endl;
+
+					FD_SET(ClientSocket, &ReadSockets);
+				}
+				else
+				{
+					//Data Receive
+
+					//header
+					unsigned short PacketSize = 0;
+					int RecvBytes = recv(ReadSockets.fd_array[i], (char*)&PacketSize, sizeof(PacketSize), MSG_WAITALL);
+					if (RecvBytes <= 0)
+					{
+						cout << "header recv fail " << endl;
+						DisconnectSocket(ReadSockets.fd_array[i], &ReadSockets);
+						continue;
+					}
+
+					PacketSize = ntohs(PacketSize);
+
+					memset(Buffer, 0, sizeof(Buffer));
+					//data JSON
+					RecvBytes = recv(ReadSockets.fd_array[i], Buffer, PacketSize, MSG_WAITALL);
+					if (RecvBytes <= 0)
+					{
+						cout << "data recv fail " << endl;
+						DisconnectSocket(ReadSockets.fd_array[i], &ReadSockets);
+						continue;
+					}
+					else
+					{
+						SOCKADDR_IN ClientSockAddr;
+						memset(&ClientSockAddr, 0, sizeof(ClientSockAddr));
+						int ClientSockAddrLength = sizeof(ClientSockAddr);
+
+						getpeername(ReadSockets.fd_array[i], (SOCKADDR*)&ClientSockAddr, &ClientSockAddrLength);
+
+						cout << "client(" << inet_ntoa(ClientSockAddr.sin_addr);
+						cout << ")" << Buffer << " send" << endl;
+						//모든 접속한 유저한테 전달
+
+						for (int j = 0; j < (int)ReadSockets.fd_count; ++j)
+						{
+							//자기꺼는 그냥 찍고 안 받으면 안되요?
+							//클라이언트에서는 처리 안함.
+							if (ReadSockets.fd_array[j] != ListenSocket)
+							{
+								PacketSize = (unsigned short)strlen(Buffer);
+								PacketSize = htons(PacketSize);
+
+								//header
+								int SentBytes = SendAll(ReadSockets.fd_array[j], (char*)&PacketSize, 2);
+								if (SentBytes <= 0)
+								{
+									cout << "header send fail." << endl;
+									DisconnectSocket(ReadSockets.fd_array[j], &ReadSockets);
+								}
+
+								//Data
+								SentBytes = SendAll(ReadSockets.fd_array[j], Buffer, ntohs(PacketSize));
+								if (SentBytes <= 0)
+								{
+									cout << "Data send fail." << endl;
+									DisconnectSocket(ReadSockets.fd_array[j], &ReadSockets);
+								}
+							}
+						}
+					}
+				}
+			}
 		}
-
-		//음수면 오류
-		else if (RecvLength < 0)
-		{
-			cout << "disconnect" << endl;
-			exit(-1);
-		}
-
-		//양수면 자료 받았다는 뜻
-		cout << "client send data : " << Buffer << endl;
-
-		int SentLength = send(ClientSocket, Buffer, sizeof(Buffer), 0);
-		if (SentLength == 0)
-		{
-			cout << "send disconnect " << endl;
-			exit(-1);
-		}
-		else if (SentLength < 0)
-		{
-			cout << "send Error " << WSAGetLastError() << endl;
-			exit(-1);
-		}
-
-
-		closesocket(ClientSocket);
 	}
 
 
+
+
+
+
 	closesocket(ListenSocket);
-
-
-
-
-
-	//소켓이랑 밖의 주소랑 연결
-	//bind (ListenSocket)
-
 	WSACleanup();
 
 	return 0;
-
 }
