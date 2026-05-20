@@ -6,6 +6,7 @@
 
 
 #pragma comment(lib, "ws2_32")
+#pragma comment(lib, "NetCommon")
 
 using namespace std;
 
@@ -30,7 +31,7 @@ int main()
 	ListenSockAddr.sin_port = htons(35000);
 
 	//already use port 이미 포트 사용중
-	bind(ListenSocket, (SOCKADDR*)&ListenSockAddr, sizeof(ListenSockAddr));
+	::bind(ListenSocket, (SOCKADDR*)&ListenSockAddr, sizeof(ListenSockAddr));
 
 	listen(ListenSocket, SOMAXCONN);
 
@@ -83,6 +84,7 @@ int main()
 				else
 				{
 					//Data Receive
+					memset(Buffer, 0, sizeof(Buffer));
 					int RecvBytes = recv(ReadSockets.fd_array[i], Buffer, sizeof(Buffer), 0);
 					if (RecvBytes <= 0)
 					{
@@ -114,7 +116,7 @@ int main()
 							//클라이언트에서는 처리 안함.
 							if (ReadSockets.fd_array[j] != ListenSocket)
 							{
-								int SentBytes = send(ReadSockets.fd_array[j], Buffer, sizeof(Buffer), 0);
+								int SentBytes = send(ReadSockets.fd_array[j], Buffer, (int)strlen(Buffer), 0);
 								if (SentBytes <= 0)
 								{
 									SOCKADDR_IN ClosedSockAddr;

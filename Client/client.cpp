@@ -1,11 +1,7 @@
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
 
-#define RAPIDJSON_HAS_STDSTRING 1
 
-#include "rapidjson/document.h"
-#include "rapidjson/writer.h"
-#include "rapidjson/stringbuffer.h"
-
+#include "ChatPacket.h"
 
 #include <winsock2.h>
 #include <Windows.h>
@@ -15,9 +11,9 @@
 
 
 
-
-
 #pragma comment(lib, "ws2_32")
+#pragma comment(lib, "NetCommon")
+
 
 using namespace std;
 
@@ -33,6 +29,7 @@ unsigned WINAPI RecvThread(void* Argument)
 
 	while (IsRecvThreadRunning)
 	{
+		//1 : 1로 주고 받는다.
 		int RecvBytes = recv(ServerSocket, RecvBuffer, sizeof(RecvBuffer), 0);
 		if (RecvBytes <= 0)
 		{
@@ -40,7 +37,11 @@ unsigned WINAPI RecvThread(void* Argument)
 			break;
 		}
 
-		cout << "server : " << RecvBuffer << " send" << endl;
+		ChatPacket Data;
+
+		Data.Parse(RecvBuffer);
+
+		cout << Data.UserID << " : " << Data.Message << " " << Data.Gold << endl;
 	}
 
 
@@ -58,7 +59,14 @@ unsigned WINAPI SendThread(void* Argument)
 	{
 		cin.getline(SendBuffer, sizeof(SendBuffer));
 
-		int SentBytes = send(ServerSocket, SendBuffer, sizeof(SendBuffer), 0);
+		ChatPacket Data;
+		Data.UserID = "junios";
+		Data.Message = SendBuffer;
+		Data.Gold = 1000;
+		std::string JSONString = Data.ToString();
+
+		//그냥 1 : 1로 주고 받는다.
+		int SentBytes = send(ServerSocket, JSONString.c_str(), (int)JSONString.length(), 0);
 		if (SentBytes <= 0)
 		{
 			cout << "send fail." << endl;
@@ -71,47 +79,8 @@ unsigned WINAPI SendThread(void* Argument)
 	return 0;
 }
 
-using namespace rapidjson;
-
-
 int main()
 {
-	// 1. Parse a JSON string into DOM.
-	const char* json = R"(
-{
-	"project": "rapidjson",
-	"stars": 10 ,
-	"name" : "박기원",
-	"result" : true
-}
-	)";
-
-	Document d;
-	d.Parse(json);
-
-	// 2. Modify it by DOM.
-	Value& s = d["stars"];
-	s.SetInt(s.GetInt() + 1);
-
-	cout << d["name"].GetString() << endl;
-
-	d["name"] = "김경준";
-
-	cout << d["result"].GetBool() << endl;
-
-	// 3. Stringify the DOM
-	StringBuffer buffer;
-	Writer<StringBuffer> writer(buffer);
-	d.Accept(writer);
-
-	// Output {"project":"rapidjson","stars":11}
-	std::cout << buffer.GetString() << std::endl;
-
-
-
-	return 0;
-
-
 	cout << "client" << endl;
 
 
