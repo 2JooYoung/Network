@@ -5,6 +5,8 @@
 #include <winsock2.h>
 #include <iostream>
 
+#include "SessionManager.h"
+
 
 #pragma comment(lib, "ws2_32")
 #pragma comment(lib, "NetCommon")
@@ -13,6 +15,8 @@ using namespace std;
 
 char Buffer[1024] = { 0, };
 
+SessionManager MySessionManager;
+
 void ProcessPacket(SOCKET ProcessSocket, const char* InBuffer, const Header& InHeader)
 {
 	switch ((EPacketType)InHeader.PacketType)
@@ -20,26 +24,43 @@ void ProcessPacket(SOCKET ProcessSocket, const char* InBuffer, const Header& InH
 	case EPacketType::C2S_Login:
 		C2S_Login LoginPacket;
 		LoginPacket.Parse(InBuffer);
+		//접속 한 유저가 정확한 사람인지 확인
+		// AGameModeBase::PreLogin();
 		//접속 한 유저 정보 업데이트(Session)
+		Session InSession;
+		InSession.ClientSocket = ProcessSocket;
+		InSession.UserID = LoginPacket.UserID;
+		InSession.X = rand() % 24 + 1; // 1 ~ 25;
+		InSession.Y = rand() % 24 + 1; // 1 ~ 25;
+		InSession.Shape = 65 + (rand() % 26);
+
+		MySessionManager.Add(InSession);
 		//접속 한 아이한테 확인 패킷(S2C_Login)
+
+		S2C_Login Data;
+		Data.Message = "Welcome.";
+
+		//header
+		Header DataHeader;
+		DataHeader.MakeHeader((int)Data.ToString().length(), EPacketType::S2C_Login);
+		int SentBytes = SendAll(ProcessSocket, (char*)&DataHeader, HeaderSize);
+		if (SentBytes <= 0)
+		{
+			cout << "header send fail." << endl;
+		}
+
+		//Data
+		SentBytes = SendAll(ProcessSocket, (char*)&Data, (int)Data.ToString().length());
+		if (SentBytes <= 0)
+		{
+			cout << "Data send fail." << endl;
+		}
+
+
 		break;
 	}
 
-	////header
-	//int SentBytes = SendAll(ReadSockets.fd_array[j], (char*)&PacketSize, 2);
-	//if (SentBytes <= 0)
-	//{
-	//	cout << "header send fail." << endl;
-	//	DisconnectSocket(ReadSockets.fd_array[j], &ReadSockets);
-	//}
 
-	////Data
-	//SentBytes = SendAll(ReadSockets.fd_array[j], Buffer, ntohs(PacketSize));
-	//if (SentBytes <= 0)
-	//{
-	//	cout << "Data send fail." << endl;
-	//	DisconnectSocket(ReadSockets.fd_array[j], &ReadSockets);
-	//}
 }
 
 //blocking, synchrous, multiplexing(polling)
