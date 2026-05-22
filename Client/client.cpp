@@ -25,8 +25,24 @@ char RecvBuffer[1024] = { 0, };
 bool IsRecvThreadRunning = true;
 bool IsSendThreadRunning = true;
 
+//ActorList
 SessionManager MySessionManager;
 SOCKET MyClientID;
+
+void Render()
+{
+	system("cls");
+
+	for (auto Player : MySessionManager.SessionList)
+	{
+		COORD Where;
+		Where.X = Player.X;
+		Where.Y = Player.Y;
+		SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), Where);
+		std::cout << (char)Player.Shape << endl;
+	}
+}
+
 
 void ProcessPacket(SOCKET ProcessSocket, const char* InBuffer, const Header& InHeader)
 {
@@ -36,7 +52,7 @@ void ProcessPacket(SOCKET ProcessSocket, const char* InBuffer, const Header& InH
 		{
 			S2C_Login LoginPacket;
 			LoginPacket.Parse(InBuffer);
-			cout << LoginPacket.ToString() << endl;
+			//std::cout << LoginPacket.ToString() << endl;
 			MyClientID = LoginPacket.ClientSocketID;
 		}
 		break;
@@ -44,7 +60,7 @@ void ProcessPacket(SOCKET ProcessSocket, const char* InBuffer, const Header& InH
 		{
 			S2C_Spawn SpawnData;
 			SpawnData.Parse(InBuffer);
-			cout << SpawnData.ToString() << endl;
+			//std::cout << SpawnData.ToString() << endl;
 
 			Session InSession;
 			InSession.ClientSocket = SpawnData.ClientSocket;
@@ -53,6 +69,7 @@ void ProcessPacket(SOCKET ProcessSocket, const char* InBuffer, const Header& InH
 			InSession.Y = SpawnData.Y;
 
 			MySessionManager.Add(InSession);
+			Render();
 		}
 		break;
 	case EPacketType::S2C_Move:
@@ -63,7 +80,8 @@ void ProcessPacket(SOCKET ProcessSocket, const char* InBuffer, const Header& InH
 			FindSession->X = MoveData.X;
 			FindSession->Y = MoveData.Y;
 
-			std::cout << MoveData.ToString() << endl;
+			//std::cout << MoveData.ToString() << endl;
+			Render();
 		}
 		break;
 	case EPacketType::S2C_Destroy:
@@ -73,9 +91,10 @@ void ProcessPacket(SOCKET ProcessSocket, const char* InBuffer, const Header& InH
 
 			Session* FindSession = MySessionManager.GetSession(DestroyPacket.ClientSocket);
 
-			std::cout << "Quit : " << FindSession->ClientSocket << endl;
+			//std::cout << "Quit : " << FindSession->ClientSocket << endl;
 
 			MySessionManager.Delete(*FindSession);
+			Render();
 
 		}
 		break;
@@ -97,7 +116,7 @@ unsigned WINAPI RecvThread(void* Argument)
 		int RecvBytes = RecvAll(ServerSocket, (char*)&DataHeader, HeaderSize);
 		if (RecvBytes <= 0)
 		{
-			cout << "header recv fail " << endl;
+			std::cout << "header recv fail " << endl;
 			break;
 		}
 
@@ -108,7 +127,7 @@ unsigned WINAPI RecvThread(void* Argument)
 		RecvBytes = RecvAll(ServerSocket, RecvBuffer, DataHeader.PacketSize);
 		if (RecvBytes <= 0)
 		{
-			cout << "Data recv fail " << endl;
+			std::cout << "Data recv fail " << endl;
 			break;
 		}
 
@@ -152,14 +171,14 @@ unsigned WINAPI SendThread(void* Argument)
 		int SentBytes = SendAll(ServerSocket, (char*)&DataHeader, HeaderSize);
 		if (SentBytes <= 0)
 		{
-			cout << "header send fail." << endl;
+			std::cout << "header send fail." << endl;
 		}
 
 		//Data
 		SentBytes = SendAll(ServerSocket, MoveData.ToString().c_str(), (int)(MoveData.ToString().length()));
 		if (SentBytes <= 0)
 		{
-			cout << "Data send fail." << endl;
+			std::cout << "Data send fail." << endl;
 		}
 	
 
@@ -170,7 +189,7 @@ unsigned WINAPI SendThread(void* Argument)
 
 int main()
 {
-	cout << "client " << endl;
+	std::cout << "client " << endl;
 
 	WSAData wsaData;
 
@@ -186,7 +205,7 @@ int main()
 
 	connect(ServerSocket, (SOCKADDR*)&ServerSockAddr, sizeof(ServerSockAddr));
 
-	cout << "client connect" << endl;
+	std::cout << "client connect" << endl;
 
 	C2S_Login LoginData;
 	LoginData.UserID = "junios";
@@ -198,12 +217,12 @@ int main()
 	//Login ¿äÃ»
 	if (SendAll(ServerSocket, (char*)&LoginHeader, HeaderSize) <= 0)
 	{
-		cout << "login header Error" << endl;
+		std::cout << "login header Error" << endl;
 	}
 
 	if ( SendAll(ServerSocket, LoginData.ToString().c_str(), (int)LoginData.ToString().length()) <= 0)
 	{
-		cout << "login data Error" << endl;
+		std::cout << "login data Error" << endl;
 	}
 
 	HANDLE ThreadHandles[2] = { 0, };
