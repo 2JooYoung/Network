@@ -36,6 +36,7 @@ SDL_Renderer* MyRenderer;
 
 
 std::mutex SessionLock;
+std::mutex KeyBufferLock;
 
 
 void Render();
@@ -124,18 +125,22 @@ int SDL_main(int Argc, char* Argv[])
 			int KeyCode = 0;
 			if (KeyState[SDL_SCANCODE_W])
 			{
+				lock_guard<std::mutex> KeyLock(KeyBufferLock);
 				KeyBuffer.push('W');
 			}
 			if (KeyState[SDL_SCANCODE_S])
 			{
+				lock_guard<std::mutex> KeyLock(KeyBufferLock);
 				KeyBuffer.push('S');
 			}
 			if (KeyState[SDL_SCANCODE_A])
 			{
+				lock_guard<std::mutex> KeyLock(KeyBufferLock);
 				KeyBuffer.push('A');
 			}
 			if (KeyState[SDL_SCANCODE_D])
 			{
+				lock_guard<std::mutex> KeyLock(KeyBufferLock);
 				KeyBuffer.push('D');
 			}
 		}
@@ -311,17 +316,20 @@ unsigned WINAPI SendThread(void* Argument)
 
 	while (IsSendThreadRunning)
 	{
-
 		if (KeyBuffer.empty())
 		{
-			Sleep(0);
+			YieldProcessor();
+			//Sleep(0);
 			continue;
 		}
 
 		C2S_Move MoveData;
 		MoveData.ClientSocket = MyClientID;
-		MoveData.Direction = KeyBuffer.front();
-		KeyBuffer.pop();
+		{
+			lock_guard<std::mutex> KeyLock(KeyBufferLock);
+			MoveData.Direction = KeyBuffer.front();
+			KeyBuffer.pop();
+		}
 
 		//header
 		Header DataHeader;
