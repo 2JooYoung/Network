@@ -8,6 +8,9 @@ public:
 	int X;
 	int Y;
 	char Shape = ' ';
+	int R;
+	int G;
+	int B;
 
 	// Inherited via IPacket
 	void Parse(std::string InString) override;

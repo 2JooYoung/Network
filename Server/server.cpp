@@ -79,8 +79,12 @@ void ProcessPacket(SOCKET ProcessSocket, const char* InBuffer, const Header& InH
 			Session InSession;
 			InSession.ClientSocket = ProcessSocket;
 			InSession.UserID = LoginPacket.UserID;
-			InSession.X = rand() % 24 + 1; // 1 ~ 25;
-			InSession.Y = rand() % 24 + 1; // 1 ~ 25;
+			InSession.X = rand() % 640;
+			InSession.Y = rand() % 480;
+			InSession.R = rand() % 255;
+			InSession.G = rand() % 255;
+			InSession.B = rand() % 255;
+
 			InSession.Shape = 65 + (rand() % 26);
 
 			MySessionManager.Add(InSession);
@@ -114,6 +118,9 @@ void ProcessPacket(SOCKET ProcessSocket, const char* InBuffer, const Header& InH
 				SpawnData.Shape = Item.Shape;
 				SpawnData.X = Item.X;
 				SpawnData.Y = Item.Y;
+				SpawnData.R = Item.R;
+				SpawnData.G = Item.G;
+				SpawnData.B = Item.B;
 
 				Header SpawnHeader;
 				SpawnHeader.MakeHeader((int)SpawnData.ToString().length(), EPacketType::S2C_Spawn);
