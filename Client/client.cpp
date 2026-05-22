@@ -66,7 +66,22 @@ void ProcessPacket(SOCKET ProcessSocket, const char* InBuffer, const Header& InH
 			std::cout << MoveData.ToString() << endl;
 		}
 		break;
+	case EPacketType::S2C_Destroy:
+		{
+			S2C_Destroy DestroyPacket;
+			DestroyPacket.Parse(InBuffer);
+
+			Session* FindSession = MySessionManager.GetSession(DestroyPacket.ClientSocket);
+
+			std::cout << "Quit : " << FindSession->ClientSocket << endl;
+
+			MySessionManager.Delete(*FindSession);
+
+		}
+		break;
 	}
+
+
 }
 
 unsigned WINAPI RecvThread(void* Argument)
