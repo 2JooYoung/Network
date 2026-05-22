@@ -8,6 +8,7 @@
 #include <Windows.h>
 #include <iostream>
 #include <process.h>
+#include <conio.h>
 
 
 
@@ -24,6 +25,9 @@ char RecvBuffer[1024] = { 0, };
 bool IsRecvThreadRunning = true;
 bool IsSendThreadRunning = true;
 
+SessionManager MySessionManager;
+SOCKET MyClientID;
+
 void ProcessPacket(SOCKET ProcessSocket, const char* InBuffer, const Header& InHeader)
 {
 	switch ((EPacketType)InHeader.PacketType)
@@ -33,6 +37,7 @@ void ProcessPacket(SOCKET ProcessSocket, const char* InBuffer, const Header& InH
 			S2C_Login LoginPacket;
 			LoginPacket.Parse(InBuffer);
 			cout << LoginPacket.ToString() << endl;
+			MyClientID = LoginPacket.ClientSocketID;
 		}
 		break;
 	case EPacketType::S2C_Spawn:
@@ -40,6 +45,25 @@ void ProcessPacket(SOCKET ProcessSocket, const char* InBuffer, const Header& InH
 			S2C_Spawn SpawnData;
 			SpawnData.Parse(InBuffer);
 			cout << SpawnData.ToString() << endl;
+
+			Session InSession;
+			InSession.ClientSocket = SpawnData.ClientSocket;
+			InSession.Shape = SpawnData.Shape;
+			InSession.X = SpawnData.X;
+			InSession.Y = SpawnData.Y;
+
+			MySessionManager.Add(InSession);
+		}
+		break;
+	case EPacketType::S2C_Move:
+		{
+			S2C_Move MoveData;
+			MoveData.Parse(InBuffer);
+			Session* FindSession = MySessionManager.GetSession(MoveData.ClientSocket);
+			FindSession->X = MoveData.X;
+			FindSession->Y = MoveData.Y;
+
+			std::cout << MoveData.ToString() << endl;
 		}
 		break;
 	}
@@ -87,32 +111,42 @@ unsigned WINAPI SendThread(void* Argument)
 
 	while (IsSendThreadRunning)
 	{
-		cin.getline(SendBuffer, sizeof(SendBuffer));
+		int KeyCode = _getch();
 
-		//ChatPacket Data;
-		//Data.UserID = "junios";
-		//Data.Message = SendBuffer;
-		//Data.Gold = 1000;
-		//std::string JSONString = Data.ToString();
+		if (!(KeyCode == 'w' ||
+			KeyCode == 'W' ||
+			KeyCode == 'a' ||
+			KeyCode == 'A' ||
+			KeyCode == 's' ||
+			KeyCode == 'S' ||
+			KeyCode == 'd' ||
+			KeyCode == 'D'))
+		{
+			continue;
+		}
 
-		//unsigned short PacketSize = (unsigned short)JSONString.length();
-		//PacketSize = htons(PacketSize);
 
-		////header
-		//int SentBytes = SendAll(ServerSocket, (char*)&PacketSize, 2);
-		//if (SentBytes <= 0)
-		//{
-		//	cout << "header send fail." << endl;
-		//	break;
-		//}
+		C2S_Move MoveData;
+		MoveData.ClientSocket = MyClientID;
+		MoveData.Direction = KeyCode;
 
-		////Data
-		//SentBytes = SendAll(ServerSocket, JSONString.c_str(), ntohs(PacketSize));
-		//if (SentBytes <= 0)
-		//{
-		//	cout << "data send fail." << endl;
-		//	break;
-		//}
+
+		//header
+		Header DataHeader;
+		DataHeader.MakeHeader((int)(MoveData.ToString().length()), EPacketType::C2S_Move);
+		int SentBytes = SendAll(ServerSocket, (char*)&DataHeader, HeaderSize);
+		if (SentBytes <= 0)
+		{
+			cout << "header send fail." << endl;
+		}
+
+		//Data
+		SentBytes = SendAll(ServerSocket, MoveData.ToString().c_str(), (int)(MoveData.ToString().length()));
+		if (SentBytes <= 0)
+		{
+			cout << "Data send fail." << endl;
+		}
+	
 
 	}
 
