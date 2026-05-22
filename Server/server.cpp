@@ -42,7 +42,7 @@ void ProcessPacket(SOCKET ProcessSocket, const char* InBuffer, const Header& InH
 
 		//header
 		Header DataHeader;
-		DataHeader.MakeHeader((int)Data.ToString().length(), EPacketType::S2C_Login);
+		DataHeader.MakeHeader((int)(Data.ToString().length()), EPacketType::S2C_Login);
 		int SentBytes = SendAll(ProcessSocket, (char*)&DataHeader, HeaderSize);
 		if (SentBytes <= 0)
 		{
@@ -50,10 +50,39 @@ void ProcessPacket(SOCKET ProcessSocket, const char* InBuffer, const Header& InH
 		}
 
 		//Data
-		SentBytes = SendAll(ProcessSocket, (char*)&Data, (int)Data.ToString().length());
+		SentBytes = SendAll(ProcessSocket, Data.ToString().c_str(), (int)(Data.ToString().length()));
 		if (SentBytes <= 0)
 		{
 			cout << "Data send fail." << endl;
+		}
+
+		//접속한 모든 유저한테 현재 모든 유저의 정보를 보내준다.
+		for (auto Item : MySessionManager.SessionList)
+		{
+			S2C_Spawn SpawnData;
+			SpawnData.ClientSocket = Item.ClientSocket;
+			SpawnData.Shape = Item.Shape;
+			SpawnData.X = Item.X;
+			SpawnData.Y = Item.Y;
+
+			Header SpawnHeader;
+			SpawnHeader.MakeHeader((int)SpawnData.ToString().length(), EPacketType::S2C_Spawn);
+			for (auto Receiver : MySessionManager.SessionList)
+			{
+				//header
+				int SentBytes = SendAll(Receiver.ClientSocket, (char*)&SpawnHeader, HeaderSize);
+				if (SentBytes <= 0)
+				{
+					cout << "header send fail." << endl;
+				}
+
+				//Data
+				SentBytes = SendAll(Receiver.ClientSocket, SpawnData.ToString().c_str(), (int)(SpawnData.ToString().length()));
+				if (SentBytes <= 0)
+				{
+					cout << "Data send fail." << endl;
+				}
+			}
 		}
 
 
