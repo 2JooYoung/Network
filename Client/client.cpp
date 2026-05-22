@@ -9,12 +9,13 @@
 #include <iostream>
 #include <process.h>
 #include <conio.h>
-
-
+#include "SDL.h"
 
 
 #pragma comment(lib, "ws2_32")
 #pragma comment(lib, "NetCommon")
+#pragma comment(lib, "SDL2")
+#pragma comment(lib, "SDL2main")
 
 
 using namespace std;
@@ -187,7 +188,7 @@ unsigned WINAPI SendThread(void* Argument)
 	return 0;
 }
 
-int main()
+int SDL_main(int Argc, char* Argv[])
 {
 	std::cout << "client " << endl;
 
