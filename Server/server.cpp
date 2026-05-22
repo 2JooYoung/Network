@@ -13,6 +13,35 @@ using namespace std;
 
 char Buffer[1024] = { 0, };
 
+void ProcessPacket(SOCKET ProcessSocket, const char* InBuffer, const Header& InHeader)
+{
+	switch ((EPacketType)InHeader.PacketType)
+	{
+	case EPacketType::C2S_Login:
+		C2S_Login LoginPacket;
+		LoginPacket.Parse(InBuffer);
+		//접속 한 유저 정보 업데이트(Session)
+		//접속 한 아이한테 확인 패킷(S2C_Login)
+		break;
+	}
+
+	////header
+	//int SentBytes = SendAll(ReadSockets.fd_array[j], (char*)&PacketSize, 2);
+	//if (SentBytes <= 0)
+	//{
+	//	cout << "header send fail." << endl;
+	//	DisconnectSocket(ReadSockets.fd_array[j], &ReadSockets);
+	//}
+
+	////Data
+	//SentBytes = SendAll(ReadSockets.fd_array[j], Buffer, ntohs(PacketSize));
+	//if (SentBytes <= 0)
+	//{
+	//	cout << "Data send fail." << endl;
+	//	DisconnectSocket(ReadSockets.fd_array[j], &ReadSockets);
+	//}
+}
+
 //blocking, synchrous, multiplexing(polling)
 int main()
 {
@@ -86,8 +115,8 @@ int main()
 					//Data Receive
 
 					//header
-					unsigned short PacketSize = 0;
-					int RecvBytes = recv(ReadSockets.fd_array[i], (char*)&PacketSize, sizeof(PacketSize), MSG_WAITALL);
+					Header DataHeader;
+					int RecvBytes = RecvAll(ReadSockets.fd_array[i], (char*)&DataHeader, HeaderSize);
 					if (RecvBytes <= 0)
 					{
 						cout << "header recv fail " << endl;
@@ -95,11 +124,11 @@ int main()
 						continue;
 					}
 
-					PacketSize = ntohs(PacketSize);
+					DataHeader.NetworkToHost();
 
 					memset(Buffer, 0, sizeof(Buffer));
 					//data JSON
-					RecvBytes = recv(ReadSockets.fd_array[i], Buffer, PacketSize, MSG_WAITALL);
+					RecvBytes = RecvAll(ReadSockets.fd_array[i], Buffer, DataHeader.PacketSize);
 					if (RecvBytes <= 0)
 					{
 						cout << "data recv fail " << endl;
@@ -108,42 +137,7 @@ int main()
 					}
 					else
 					{
-						SOCKADDR_IN ClientSockAddr;
-						memset(&ClientSockAddr, 0, sizeof(ClientSockAddr));
-						int ClientSockAddrLength = sizeof(ClientSockAddr);
-
-						getpeername(ReadSockets.fd_array[i], (SOCKADDR*)&ClientSockAddr, &ClientSockAddrLength);
-
-						cout << "client(" << inet_ntoa(ClientSockAddr.sin_addr);
-						cout << ")" << Buffer << " send" << endl;
-						//모든 접속한 유저한테 전달
-
-						for (int j = 0; j < (int)ReadSockets.fd_count; ++j)
-						{
-							//자기꺼는 그냥 찍고 안 받으면 안되요?
-							//클라이언트에서는 처리 안함.
-							if (ReadSockets.fd_array[j] != ListenSocket)
-							{
-								PacketSize = (unsigned short)strlen(Buffer);
-								PacketSize = htons(PacketSize);
-
-								//header
-								int SentBytes = SendAll(ReadSockets.fd_array[j], (char*)&PacketSize, 2);
-								if (SentBytes <= 0)
-								{
-									cout << "header send fail." << endl;
-									DisconnectSocket(ReadSockets.fd_array[j], &ReadSockets);
-								}
-
-								//Data
-								SentBytes = SendAll(ReadSockets.fd_array[j], Buffer, ntohs(PacketSize));
-								if (SentBytes <= 0)
-								{
-									cout << "Data send fail." << endl;
-									DisconnectSocket(ReadSockets.fd_array[j], &ReadSockets);
-								}
-							}
-						}
+						ProcessPacket(ReadSockets.fd_array[i], Buffer, DataHeader);
 					}
 				}
 			}

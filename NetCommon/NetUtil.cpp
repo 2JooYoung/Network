@@ -33,3 +33,10 @@ void DisconnectSocket(SOCKET DisconnectedSocket, fd_set* Sockets)
 	closesocket(ClosedSocket);
 }
 
+
+int RecvAll(SOCKET ReceiverSocket, char* OutData, int Size)
+{
+	int RecvBytes = recv(ReceiverSocket, OutData, Size, MSG_WAITALL);
+	return RecvBytes;
+}
+

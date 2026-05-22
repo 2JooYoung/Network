@@ -103,8 +103,7 @@ unsigned WINAPI SendThread(void* Argument)
 
 int main()
 {
-	cout << "client" << endl;
-
+	cout << "client " << endl;
 
 	WSAData wsaData;
 
@@ -121,6 +120,17 @@ int main()
 	connect(ServerSocket, (SOCKADDR*)&ServerSockAddr, sizeof(ServerSockAddr));
 
 	cout << "client connect" << endl;
+
+	C2S_Login LoginData;
+	LoginData.UserID = "junios";
+	LoginData.HashKey = "1as3f356dsd6gyhg";
+
+	Header LoginHeader;
+	LoginHeader.MakeHeader(static_cast<unsigned short>(LoginData.ToString().length()), EPacketType::C2S_Login);
+
+	//Login ฟไรป
+	SendAll(ServerSocket, (char*)&LoginHeader, HeaderSize);
+	SendAll(ServerSocket, LoginData.ToString().c_str(), (int)LoginData.ToString().length());
 
 	HANDLE ThreadHandles[2] = { 0, };
 
