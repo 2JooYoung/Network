@@ -5,7 +5,6 @@
 #include <winsock2.h>
 #include <iostream>
 
-#include "SessionManager.h"
 
 
 #pragma comment(lib, "ws2_32")
@@ -188,6 +187,46 @@ void ProcessPacket(SOCKET ProcessSocket, const char* InBuffer)
 				if (SentBytes <= 0)
 				{
 					std::cout << "move send fail." << endl;
+				}
+			}
+		}
+		break;
+
+		case UserPacket::PacketType_C2S_ChangeColor:
+		{
+			flatbuffers::FlatBufferBuilder SendBuilder;
+
+			auto ChangeColorPacket = UserPacketData->data_as_C2S_ChangeColor();
+
+			Session* ChangeSession = MySessionManager.GetSession((SOCKET)ChangeColorPacket->client_socket_id());
+
+			ChangeSession->R = rand() % 255;
+			ChangeSession->G = rand() % 255;
+			ChangeSession->B = rand() % 255;
+
+			UserPacket::FColor Color(ChangeSession->R, ChangeSession->G, ChangeSession->B);
+
+			auto S2C_ColorData = UserPacket::CreateS2C_ChangeColor(
+				SendBuilder,
+				ChangeColorPacket->client_socket_id(),
+				&Color
+			);
+
+			auto UserPacketData = UserPacket::CreatePacketData(
+				SendBuilder,
+				UserPacket::PacketType_S2C_ChangeColor,
+				S2C_ColorData.Union()
+			);
+
+			SendBuilder.Finish(UserPacketData);
+
+			//모든 유저한테 이동 패킷 보내줌
+			for (auto Receiver : MySessionManager.SessionList)
+			{
+				int SentBytes = SendAll(Receiver.ClientSocket, SendBuilder);
+				if (SentBytes <= 0)
+				{
+					std::cout << "change color send fail." << endl;
 				}
 			}
 		}
