@@ -83,7 +83,7 @@ bool Signup(std::string UserID, std::string Password, std::string Name)
 	try
 	{
 		//SQL X
-		sql::SQLString Query = "insert into user (`user_id`, `user_pw`, `name`) values ( ?, ?, ?);";
+		sql::SQLString Query = "insert into user (`user_id`, `user_pw`, `name`) values ( ?,  sha2(?, 512), ?);";
 
 		MyPreparedStatement = MyConnection->prepareStatement(Query);
 		MyPreparedStatement->setString(1, UserID);
@@ -144,7 +144,11 @@ void DisconnectSocket(SOCKET DisconnectedSocket, fd_set* Sockets)
 	
 	//dangling pointer
 	Session* FindSession = MySessionManager.GetSession(ClosedSocket);
-	MySessionManager.Delete(*FindSession);
+
+	if (FindSession)
+	{
+		MySessionManager.Delete(*FindSession);
+	}
 
 
 	//모든 유저한테 이동 패킷 보내줌
@@ -167,35 +171,66 @@ void ProcessPacket(SOCKET ProcessSocket, const char* InBuffer)
 
 			auto LoginPacket = UserPacketData->data_as_C2S_Login();
 
-			Session InSession;
-			InSession.ClientSocket = ProcessSocket;
-			InSession.UserID = LoginPacket->user_id()->c_str();
-			InSession.X = rand() % 640;
-			InSession.Y = rand() % 480;
-			InSession.R = rand() % 255;
-			InSession.G = rand() % 255;
-			InSession.B = rand() % 255;
-
-			InSession.Shape = 65 + (rand() % 26);
-
-			MySessionManager.Add(InSession);
-			//접속 한 아이한테 확인 패킷(S2C_Login)
+			bool Result = Login(LoginPacket->user_id()->c_str(),
+				LoginPacket->user_pw()->c_str());
 
 			flatbuffers::FlatBufferBuilder SendBuilder;
 
-			auto S2C_Login_Data = UserPacket::CreateS2C_Login(
-				SendBuilder,
-				(uint16_t)ProcessSocket,
-				SendBuilder.CreateString("Welcome.")
-			);
+			if (Result)
+			{
+				std::cout << "로그인에 성공 했습니다" << endl;
 
-			auto UserPacketData = UserPacket::CreatePacketData(
-				SendBuilder,
-				UserPacket::PacketType_S2C_Login,
-				S2C_Login_Data.Union()
-			);
+				Session InSession;
+				InSession.ClientSocket = ProcessSocket;
+				InSession.UserID = LoginPacket->user_id()->c_str();
+				InSession.X = rand() % 640;
+				InSession.Y = rand() % 480;
+				InSession.R = rand() % 255;
+				InSession.G = rand() % 255;
+				InSession.B = rand() % 255;
 
-			SendBuilder.Finish(UserPacketData);
+				InSession.Shape = 65 + (rand() % 26);
+
+				MySessionManager.Add(InSession);
+				//접속 한 아이한테 확인 패킷(S2C_Login)
+				auto S2C_Login_Data = UserPacket::CreateS2C_Login(
+					SendBuilder,
+					(uint16_t)ProcessSocket,
+					SendBuilder.CreateString("Welcome."),
+					SendBuilder.CreateString("qw3oddpui2"),
+					true
+				);
+
+				auto UserPacketData = UserPacket::CreatePacketData(
+					SendBuilder,
+					UserPacket::PacketType_S2C_Login,
+					S2C_Login_Data.Union()
+				);
+
+				SendBuilder.Finish(UserPacketData);
+			}
+			else
+			{
+				std::cout << "로그인에 실패 했습니다" << endl;
+
+				auto S2C_Login_Data = UserPacket::CreateS2C_Login(
+					SendBuilder,
+					(uint16_t)ProcessSocket,
+					SendBuilder.CreateString("Failed."),
+					SendBuilder.CreateString(""),
+					false
+				);
+
+				auto UserPacketData = UserPacket::CreatePacketData(
+					SendBuilder,
+					UserPacket::PacketType_S2C_Login,
+					S2C_Login_Data.Union()
+				);
+
+				SendBuilder.Finish(UserPacketData);
+			}
+
+
 			SendAll(ProcessSocket, SendBuilder);
 
 			//접속한 모든 유저한테 현재 모든 유저의 정보를 보내준다.
@@ -327,6 +362,34 @@ void ProcessPacket(SOCKET ProcessSocket, const char* InBuffer)
 			}
 		}
 		break;
+
+		case UserPacket::PacketType_C2S_Signup:
+		{
+			auto SignupPacket = UserPacketData->data_as_C2S_Signup();
+
+			bool Result = Signup(SignupPacket->user_id()->c_str(),
+				SignupPacket->user_pw()->c_str(),
+				SignupPacket->name()->c_str()
+			);
+
+			flatbuffers::FlatBufferBuilder SendBuilder;
+
+			auto S2C_ColorData = UserPacket::CreateS2C_Signup(
+				SendBuilder,
+				SendBuilder.CreateString(Result ? "가입 성공했습니다." : "가입에 실패 했습니다."),
+				Result
+			);
+
+			auto UserPacketData = UserPacket::CreatePacketData(
+				SendBuilder,
+				UserPacket::PacketType_S2C_Signup,
+				S2C_ColorData.Union()
+			);
+
+			SendBuilder.Finish(UserPacketData);
+			SendAll(ProcessSocket, SendBuilder);
+		}
+		break;
 	}
 
 
@@ -356,7 +419,7 @@ int main()
 
 	listen(ListenSocket, SOMAXCONN);
 
-
+	ConnectDB();
 
 	//blocking, synchronous(TimeOut)
 	TIMEVAL TimeOut;

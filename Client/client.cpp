@@ -44,6 +44,52 @@ unsigned WINAPI SendThread(void* Argument);
 std::queue<int> KeyBuffer;
 //KeyBuffer -> PacketBuffer
 
+void Signup(SOCKET ServerSocket)
+{
+	//Signup
+	flatbuffers::FlatBufferBuilder SignupSendBuilder;
+
+	auto C2S_Signup = UserPacket::CreateC2S_Signup(
+		SignupSendBuilder,
+		SignupSendBuilder.CreateString("junios2"),
+		SignupSendBuilder.CreateString("1234"),
+		SignupSendBuilder.CreateString("1234")
+	);
+
+	auto UserPacketData = UserPacket::CreatePacketData(
+		SignupSendBuilder,
+		UserPacket::PacketType_C2S_Signup,
+		C2S_Signup.Union()
+	);
+
+	SignupSendBuilder.Finish(UserPacketData);
+
+	SendAll(ServerSocket, SignupSendBuilder);
+
+
+	memset(RecvBuffer, 0, sizeof(RecvBuffer));
+	int RecvBytes = RecvAll(ServerSocket, RecvBuffer);
+	if (RecvBytes <= 0)
+	{
+		std::cout << "recv fail " << endl;
+		return;
+	}
+
+	ProcessPacket(ServerSocket, RecvBuffer);
+
+	while (1)
+	{
+		SDL_Event MyEvent;
+		SDL_PollEvent(&MyEvent);
+		if (MyEvent.type == SDL_QUIT)
+		{
+			IsRecvThreadRunning = false;
+			IsSendThreadRunning = false;
+			break;
+		}
+	}
+}
+
 int SDL_main(int Argc, char* Argv[])
 {
 	//Object 동기화(Lock, Lockfree)
@@ -73,13 +119,17 @@ int SDL_main(int Argc, char* Argv[])
 
 	std::cout << "client connect" << endl;
 
+	//회원가입
+//	Signup(ServerSocket);
+
+
 	//[][] [][][][] [][][][] 
 	//memory(Data) -> ByteArray(char []) -> Serialize(flatbuffer)
 	flatbuffers::FlatBufferBuilder SendBuilder;
 	auto C2S_LoginData = UserPacket::CreateC2S_Login(
 		SendBuilder,
 		SendBuilder.CreateString("junios"),
-		SendBuilder.CreateString("1as3f356dsd6gyhg")
+		SendBuilder.CreateString("1234")
 	);
 
 	auto UserPacketData = UserPacket::CreatePacketData(
@@ -272,6 +322,16 @@ void ProcessPacket(SOCKET ProcessSocket, const char* InBuffer)
 				FindSession->R = ColorPacket->color()->r();
 				FindSession->G = ColorPacket->color()->g();
 				FindSession->B = ColorPacket->color()->b();
+			}
+		}
+		break;
+
+		case UserPacket::PacketType_S2C_Signup :
+		{
+			auto SignupPacket = UserPacketData->data_as_S2C_Signup();
+
+			{
+
 			}
 		}
 		break;

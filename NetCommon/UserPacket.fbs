@@ -13,12 +13,13 @@ struct FVector2D {
 
 table C2S_Login {
 	user_id : string;
-	hash_key : string;
+	user_pw : string;
 }
 
 table S2C_Login {
 	client_socket_id : uint16;
 	message : string;
+	hash_key : string;
 	success : bool;
 }
 
@@ -41,7 +42,6 @@ table C2S_Signup {
 
 
 table S2C_Signup {
-	client_socket_id : uint16;
 	message : string;
 	success : bool;
 }
