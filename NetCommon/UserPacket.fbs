@@ -19,7 +19,34 @@ table C2S_Login {
 table S2C_Login {
 	client_socket_id : uint16;
 	message : string;
+	success : bool;
 }
+
+table C2S_Logout {
+	user_id : string;
+	hash_key : string;
+}
+
+table S2C_Logout {
+	client_socket_id : uint16;
+	message : string;
+	success : bool;
+}
+
+table C2S_Signup {
+	user_id : string;
+	user_pw : string;
+	name : string;
+}
+
+
+table S2C_Signup {
+	client_socket_id : uint16;
+	message : string;
+	success : bool;
+}
+
+
 
 table S2C_Spawn {
 	client_socket_id : uint16;
@@ -68,6 +95,10 @@ table S2C_ChangeColor {
 union PacketType {
 	C2S_Login,
 	S2C_Login,
+	C2S_Logout,
+	S2C_Logout,
+	C2S_Signup,
+	S2C_Signup,
 	S2C_Spawn,
 	S2C_Destroy,
 	C2S_Move,

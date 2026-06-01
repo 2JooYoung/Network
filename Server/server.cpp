@@ -5,6 +5,19 @@
 #include <winsock2.h>
 #include <iostream>
 
+#include "jdbc/mysql_connection.h"
+#include "jdbc/cppconn/driver.h"
+#include "jdbc/cppconn/exception.h"
+#include "jdbc/cppconn/resultset.h"
+#include "jdbc/cppconn/statement.h"
+#include "jdbc/cppconn/prepared_statement.h"
+
+#ifndef _DEBUG
+#pragma comment(lib, "mysqlcppconn")
+#else
+#pragma comment(lib, "debug/mysqlcppconn")
+#endif //_DEBUG
+
 
 
 #pragma comment(lib, "ws2_32")
@@ -15,6 +28,87 @@ using namespace std;
 char Buffer[65536] = { 0, };
 
 SessionManager MySessionManager;
+
+sql::Driver* MyDriver; //workbench
+sql::Connection* MyConnection; //접속 정보
+//sql::Statement* MyStatement; //쿼리 창
+sql::ResultSet* MyResultSet; //결과 창
+sql::PreparedStatement* MyPreparedStatement; //쿼리를 만들때 injection 방어함.
+
+void ConnectDB()
+{
+	try
+	{
+		MyDriver = get_driver_instance();
+		MyConnection = MyDriver->connect("tcp://127.0.0.1", "junios", "qweasd123");
+
+		MyConnection->setSchema("membership");
+	}
+	catch (sql::SQLException Exception)
+	{
+		std::cout << Exception.what() << std::endl;
+		std::cout << Exception.getSQLState() << std::endl;
+	}
+}
+
+
+bool Login(std::string UserID, std::string Password)
+{
+	//Stored Procesdure를 사용함.
+	sql::SQLString Query = "select * from user where `user_id` = ? and `user_pw` = sha2( ?, 512) and is_deleted = 'N';";
+
+	MyPreparedStatement = MyConnection->prepareStatement(Query);
+	MyPreparedStatement->setString(1, UserID);
+	MyPreparedStatement->setString(2, Password);
+	MyResultSet = MyPreparedStatement->executeQuery();
+
+	std::cout << Query << std::endl;
+
+	if (MyResultSet->rowsCount() == 0)
+	{
+		//Redis와 같은 캐시 서버에 저장
+		//hash 키값을 전송함.
+		std::cout << "아이디 비번이 틀립니다.";
+
+		return false;
+	}
+	else
+	{
+		return true;
+	}
+}
+
+bool Signup(std::string UserID, std::string Password, std::string Name)
+{
+	try
+	{
+		//SQL X
+		sql::SQLString Query = "insert into user (`user_id`, `user_pw`, `name`) values ( ?, ?, ?);";
+
+		MyPreparedStatement = MyConnection->prepareStatement(Query);
+		MyPreparedStatement->setString(1, UserID);
+		MyPreparedStatement->setString(2, Password);
+		MyPreparedStatement->setString(3, Name);
+		MyResultSet = MyPreparedStatement->executeQuery();
+
+		std::cout << Query << std::endl;
+	}
+	catch (sql::SQLException E)
+	{
+		std::cout << "이미 사용하는 아이디 입니다.";
+
+		return false;
+	}
+
+	return true;
+}
+
+bool Logout(std::string UserID, std::string Password)
+{
+	//서버 한대로 작업, 서비스?
+	return true;
+}
+
 
 void DisconnectSocket(SOCKET DisconnectedSocket, fd_set* Sockets)
 {

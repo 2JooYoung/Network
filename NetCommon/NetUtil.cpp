@@ -8,12 +8,12 @@ int SendAll(SOCKET TargetSocket, const flatbuffers::FlatBufferBuilder& Builder)
 {
 	int SentBytes = 0;
 
-	int PacketSize = Builder.GetSize();
+	unsigned short PacketSize = Builder.GetSize();
 	PacketSize = htons(PacketSize);
 
 	//::send(TargetSocket, (char*)PacketSize, 2, 0);
 	//Header
-	SentBytes = SendAll(TargetSocket, (char*)&PacketSize, 2);
+	SentBytes = SendAll(TargetSocket, (char*)&PacketSize, sizeof(PacketSize));
 	//std::cout << "send header : " << SentBytes << std::endl;
 	if (SentBytes <= 0)
 	{
@@ -53,11 +53,11 @@ int SendAll(SOCKET TargetSocket, const char* Data, int Size)
 
 int RecvAll(SOCKET SourceSocket, char* OutData)
 {
-	int PacketSize = 0;
+	unsigned short PacketSize = 0;
 	int RecvLength = 0;
-
+	
 	//header, size
-	RecvLength = ::recv(SourceSocket, (char*)&PacketSize, 2, MSG_WAITALL);
+	RecvLength = ::recv(SourceSocket, (char*)&PacketSize, sizeof(PacketSize), MSG_WAITALL);
 	//std::cout << "recv header : " << RecvLength << std::endl;
 	if (RecvLength <= 0)
 	{

@@ -1,14 +1,6 @@
 ﻿  pch.cpp
-  C2S_Login.cpp
-  C2S_Move.cpp
-  ChatPacket.cpp
   NetCommon.cpp
   NetUtil.cpp
-  Packet.cpp
-  S2C_Destroy.cpp
-  S2C_Login.cpp
-  S2C_Move.cpp
-  S2C_Spawn.cpp
   SessionManager.cpp
   Generating Code...
   NetCommon.vcxproj -> C:\Work\Network\x64\Debug\NetCommon.lib
