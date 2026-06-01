@@ -13,13 +13,17 @@ int SendAll(SOCKET TargetSocket, const flatbuffers::FlatBufferBuilder& Builder)
 
 	//::send(TargetSocket, (char*)PacketSize, 2, 0);
 	//Header
-	if (SentBytes = SendAll(TargetSocket, (char*)&PacketSize, 2) <= 0)
+	SentBytes = SendAll(TargetSocket, (char*)&PacketSize, 2);
+	std::cout << "send header : " << SentBytes << std::endl;
+	if (SentBytes <= 0)
 	{
 		std::cout << "header send Error" << std::endl;
 	}
 
 	//Data
-	if (SentBytes = SendAll(TargetSocket, (char*)Builder.GetBufferPointer(), Builder.GetSize()) <= 0)
+	SentBytes = SendAll(TargetSocket, (char*)Builder.GetBufferPointer(), Builder.GetSize());
+	std::cout << "send data : " << SentBytes << std::endl;
+	if (SentBytes <= 0)
 	{
 		std::cout << "data send Error" << std::endl;
 	}
@@ -36,7 +40,7 @@ int SendAll(SOCKET TargetSocket, const char* Data, int Size)
 	int Count = 0;
 	do
 	{
-		SentBytes = send(TargetSocket, Data + TotalSendDataSize, WantSendDataSize - TotalSendDataSize, 0);
+		SentBytes = ::send(TargetSocket, Data + TotalSendDataSize, WantSendDataSize - TotalSendDataSize, 0);
 		TotalSendDataSize += SentBytes;
 		if (SentBytes <= 0)
 		{
@@ -47,9 +51,28 @@ int SendAll(SOCKET TargetSocket, const char* Data, int Size)
 	return WantSendDataSize;
 }
 
-int RecvAll(SOCKET SourceSocket, char* OutData, int Size)
+int RecvAll(SOCKET SourceSocket, char* OutData)
 {
-	int RecvBytes = recv(SourceSocket, OutData, Size, MSG_WAITALL);
-	return RecvBytes;
-}
+	int PacketSize = 0;
+	int RecvLength = 0;
 
+	//header, size
+	RecvLength = ::recv(SourceSocket, (char*)&PacketSize, 2, MSG_WAITALL);
+	//std::cout << "recv header : " << RecvLength << std::endl;
+	if (RecvLength <= 0)
+	{
+		return RecvLength;
+	}
+
+	PacketSize = ntohs(PacketSize);
+
+	RecvLength = ::recv(SourceSocket, OutData, PacketSize, MSG_WAITALL);
+	//std::cout << "recv data : " << RecvLength << std::endl;
+	if (RecvLength <= 0)
+	{
+		return RecvLength;
+	}
+
+	return RecvLength;
+
+}
