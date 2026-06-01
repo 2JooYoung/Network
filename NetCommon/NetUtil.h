@@ -11,4 +11,3 @@ extern int RecvAll(SOCKET SourceSocket, char* OutData);
 
 extern int SendAll(SOCKET TargetSocket, const char* InData, int Size);
 
-extern void DisconnectSocket(SOCKET DisconnectedSocket, fd_set* Sockets);

@@ -14,7 +14,7 @@ int SendAll(SOCKET TargetSocket, const flatbuffers::FlatBufferBuilder& Builder)
 	//::send(TargetSocket, (char*)PacketSize, 2, 0);
 	//Header
 	SentBytes = SendAll(TargetSocket, (char*)&PacketSize, 2);
-	std::cout << "send header : " << SentBytes << std::endl;
+	//std::cout << "send header : " << SentBytes << std::endl;
 	if (SentBytes <= 0)
 	{
 		std::cout << "header send Error" << std::endl;
@@ -22,7 +22,7 @@ int SendAll(SOCKET TargetSocket, const flatbuffers::FlatBufferBuilder& Builder)
 
 	//Data
 	SentBytes = SendAll(TargetSocket, (char*)Builder.GetBufferPointer(), Builder.GetSize());
-	std::cout << "send data : " << SentBytes << std::endl;
+	//std::cout << "send data : " << SentBytes << std::endl;
 	if (SentBytes <= 0)
 	{
 		std::cout << "data send Error" << std::endl;

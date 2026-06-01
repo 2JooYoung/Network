@@ -41,7 +41,13 @@ void DisconnectSocket(SOCKET DisconnectedSocket, fd_set* Sockets)
 		(uint16_t)ClosedSocket
 	);
 
-	SendBuilder.Finish(DestroyData);
+	auto UserPacketData = UserPacket::CreatePacketData(
+		SendBuilder,
+		UserPacket::PacketType_S2C_Destroy,
+		DestroyData.Union()
+	);
+
+	SendBuilder.Finish(UserPacketData);
 	
 	//dangling pointer
 	Session* FindSession = MySessionManager.GetSession(ClosedSocket);
@@ -165,7 +171,7 @@ void ProcessPacket(SOCKET ProcessSocket, const char* InBuffer)
 				&Position
 			);
 
-			std::cout << FindSession->ClientSocket << std::endl;
+			//std::cout << FindSession->ClientSocket << std::endl;
 
 			auto MoveData = UserPacket::CreatePacketData(
 				SendBuilder,
