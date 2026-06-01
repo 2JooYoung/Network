@@ -73,6 +73,7 @@ int SDL_main(int Argc, char* Argv[])
 
 	std::cout << "client connect" << endl;
 
+	//[][] [][][][] [][][][] 
 	//memory(Data) -> ByteArray(char []) -> Serialize(flatbuffer)
 	flatbuffers::FlatBufferBuilder SendBuilder;
 	auto C2S_LoginData = UserPacket::CreateC2S_Login(
@@ -265,9 +266,9 @@ void ProcessPacket(SOCKET ProcessSocket, const char* InBuffer)
 		{
 			auto ColorPacket = UserPacketData->data_as_S2C_ChangeColor();
 
-			Session* FindSession = MySessionManager.GetSession((SOCKET)ColorPacket->client_socket_id());
 			{
 				lock_guard<std::mutex> lock(SessionLock);
+				Session* FindSession = MySessionManager.GetSession((SOCKET)ColorPacket->client_socket_id());
 				FindSession->R = ColorPacket->color()->r();
 				FindSession->G = ColorPacket->color()->g();
 				FindSession->B = ColorPacket->color()->b();
