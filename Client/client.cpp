@@ -48,7 +48,6 @@ unsigned WINAPI SendThread(void* Argument);
 std::queue<int> KeyBuffer;
 //KeyBuffer -> PacketBuffer
 
-
 int SDL_main(int Argc, char* Argv[])
 {
 	//Object µø±‚»≠(Lock, Lockfree)
@@ -91,7 +90,7 @@ int SDL_main(int Argc, char* Argv[])
 		std::cout << "login header Error" << endl;
 	}
 
-	if ( SendAll(ServerSocket, LoginData.ToString().c_str(), (int)LoginData.ToString().length()) <= 0)
+	if (SendAll(ServerSocket, LoginData.ToString().c_str(), (int)LoginData.ToString().length()) <= 0)
 	{
 		std::cout << "login data Error" << endl;
 	}
@@ -189,7 +188,7 @@ void Render()
 
 	SDL_SetRenderDrawColor(MyRenderer, 0, 0, 0, 0);
 	SDL_RenderClear(MyRenderer);
-	
+
 	{
 		lock_guard<std::mutex> lock(SessionLock);
 		//SessionLock.lock();
@@ -238,7 +237,7 @@ void ProcessPacket(SOCKET ProcessSocket, const char* InBuffer, const Header& InH
 			lock_guard<std::mutex> lock(SessionLock);
 			MySessionManager.Add(InSession);
 		}
-//		Render();
+		//		Render();
 	}
 	break;
 	case EPacketType::S2C_Move:
@@ -266,7 +265,7 @@ void ProcessPacket(SOCKET ProcessSocket, const char* InBuffer, const Header& InH
 			lock_guard<std::mutex> lock(SessionLock);
 			MySessionManager.Delete(*FindSession);
 		}
-//		Render();
+		//		Render();
 	}
 	break;
 	}
